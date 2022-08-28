@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools"
     package="com.example.stores">
 
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <application
         android:name=".StoreApplication"
         android:allowBackup="true"
@@ -24,5 +26,17 @@
             </intent-filter>
         </activity>
     </application>
+
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.DIAL" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <data android:scheme="https" />
+            <category android:name="android.intent.category.BROWSABLE" />
+        </intent>
+    </queries>
+
 
 </manifest>
