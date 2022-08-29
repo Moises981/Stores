@@ -1,4 +1,4 @@
-package com.example.stores
+package com.example.stores.mainModule.adapters
 
 import android.content.Context
 import android.view.LayoutInflater
@@ -7,6 +7,8 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.example.stores.R
+import com.example.stores.common.entities.StoreEntity
 import com.example.stores.databinding.ItemStoreBinding
 
 class StoreAdapter(
@@ -22,7 +24,7 @@ class StoreAdapter(
         fun setListener(storeEntity: StoreEntity) {
             with(binding.root) {
                 setOnClickListener {
-                    listener.onClick(storeEntity.id)
+                    listener.onClick(storeEntity)
                 }
                 setOnLongClickListener {
                     listener.onDelete(storeEntity)
@@ -55,30 +57,26 @@ class StoreAdapter(
 
     override fun getItemCount(): Int = storeEntities.size
 
-    fun setStores(stores: MutableList<StoreEntity>) {
-        this.storeEntities = stores
+    fun setStores(stores: List<StoreEntity>) {
+        this.storeEntities = stores as MutableList<StoreEntity>
+        notifyDataSetChanged()
     }
 
-    fun add(storeEntity: StoreEntity) {
+    fun save(storeEntity: StoreEntity) {
+        if (storeEntity.id == 0L) return
         if (!storeEntities.contains(storeEntity)) {
             storeEntities.add(storeEntity)
             notifyItemInserted(itemCount - 1)
+        } else {
+            update(storeEntity)
         }
     }
 
-    fun update(storeEntity: StoreEntity) {
+    private fun update(storeEntity: StoreEntity) {
         val index = storeEntities.indexOf(storeEntity)
         if (index != -1) {
             storeEntities[index] = storeEntity
             notifyItemChanged(index)
-        }
-    }
-
-    fun delete(storeEntity: StoreEntity) {
-        val index = storeEntities.indexOf(storeEntity)
-        if (index != -1) {
-            storeEntities.removeAt(index)
-            notifyItemRemoved(index)
         }
     }
 }

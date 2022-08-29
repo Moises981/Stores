@@ -2,9 +2,9 @@ package com.example.stores
 
 import android.app.Application
 import androidx.room.Room
-import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.stores.common.database.StoreDatabase
 
 class StoreApplication : Application() {
     companion object {

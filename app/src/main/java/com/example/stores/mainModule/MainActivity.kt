@@ -1,19 +1,28 @@
-package com.example.stores
+package com.example.stores.mainModule
 
 import android.content.Intent
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.recyclerview.widget.GridLayoutManager
+import com.example.stores.*
+import com.example.stores.common.entities.StoreEntity
 import com.example.stores.databinding.ActivityMainBinding
+import com.example.stores.editModule.EditStoreFragment
+import com.example.stores.editModule.viewModel.EditViewModel
+import com.example.stores.mainModule.adapters.IOnClickListener
+import com.example.stores.mainModule.adapters.StoreAdapter
+import com.example.stores.mainModule.viewModels.MainViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import kotlinx.coroutines.runBlocking
 
-class MainActivity : AppCompatActivity(), IOnClickListener, MainAux {
+class MainActivity : AppCompatActivity(), IOnClickListener {
     private lateinit var binding: ActivityMainBinding
     private lateinit var storeAdapter: StoreAdapter
     private lateinit var gridLayoutManager: GridLayoutManager
+    private val mainViewModel: MainViewModel by viewModels()
+    private val editViewModel: EditViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -25,22 +34,33 @@ class MainActivity : AppCompatActivity(), IOnClickListener, MainAux {
                 launchEditFragment()
             }
         }
+        setupViewModel()
         setupRecyclerView()
         getStores()
     }
 
-    private fun launchEditFragment(args: Bundle? = null) {
-        val fragment = EditStoreFragment()
-
-        if (args != null) {
-            fragment.arguments = args
+    private fun setupViewModel() {
+        mainViewModel.stores.observe(this) {
+            storeAdapter.setStores(it)
         }
+        editViewModel.fabStatus.observe(this) {
+            if (it) binding.fab.show()
+            else binding.fab.hide()
+        }
+        editViewModel.currentStore.observe(this){
+            storeAdapter.save(it)
+        }
+    }
+
+    private fun launchEditFragment(storeEntity: StoreEntity = StoreEntity()) {
+        editViewModel.setFabStatus(false)
+        editViewModel.setCurrentStore(storeEntity)
+        val fragment = EditStoreFragment()
         val fragmentManager = supportFragmentManager
         val fragmentTransaction = fragmentManager.beginTransaction()
         fragmentTransaction.add(R.id.containerMain, fragment)
         fragmentTransaction.addToBackStack(null)
         fragmentTransaction.commit()
-        hideFab(true)
     }
 
     private fun setupRecyclerView() {
@@ -54,37 +74,17 @@ class MainActivity : AppCompatActivity(), IOnClickListener, MainAux {
     }
 
     private fun getStores() {
-        runBlocking {
-            val stores = StoreApplication.database.storeDao().getAllStores()
-            storeAdapter.setStores(stores)
-        }
+
     }
 
 
-    override fun onClick(storeId: Long) {
-        val args = Bundle()
-        args.putLong(getString(R.string.arg_id), storeId)
-        launchEditFragment(args)
+    override fun onClick(storeEntity: StoreEntity) {
+        launchEditFragment(storeEntity)
     }
 
     override fun onFavoriteStore(storeEntity: StoreEntity) {
         storeEntity.isFavorite = !storeEntity.isFavorite
-        runBlocking {
-            StoreApplication.database.storeDao().updateStore(storeEntity)
-        }
-        updateStore(storeEntity)
-    }
-
-    override fun hideFab(isVisible: Boolean) {
-        if (isVisible) binding.fab.show() else binding.fab.hide()
-    }
-
-    override fun addStore(storeEntity: StoreEntity) {
-        storeAdapter.add(storeEntity)
-    }
-
-    override fun updateStore(storeEntity: StoreEntity) {
-        storeAdapter.update(storeEntity)
+        mainViewModel.updateStore(storeEntity)
     }
 
     override fun onDelete(storeEntity: StoreEntity) {
@@ -106,10 +106,7 @@ class MainActivity : AppCompatActivity(), IOnClickListener, MainAux {
     private fun confirmDelete(storeEntity: StoreEntity) {
         MaterialAlertDialogBuilder(this).setTitle(R.string.dialog_title)
             .setPositiveButton(R.string.dialog_delete_confirm) { _, _ ->
-                runBlocking {
-                    StoreApplication.database.storeDao().deleteStore(storeEntity)
-                }
-                storeAdapter.delete(storeEntity)
+                mainViewModel.deleteStore(storeEntity)
             }
             .setNegativeButton(R.string.dialog_delete_cancel, null).show()
     }
