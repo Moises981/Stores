@@ -4,6 +4,7 @@ import android.content.Intent
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.view.View
 import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.recyclerview.widget.GridLayoutManager
@@ -36,18 +37,22 @@ class MainActivity : AppCompatActivity(), IOnClickListener {
         }
         setupViewModel()
         setupRecyclerView()
-        getStores()
     }
 
     private fun setupViewModel() {
         mainViewModel.stores.observe(this) {
             storeAdapter.setStores(it)
         }
+
+        mainViewModel.progressBarStatus.observe(this) {
+            binding.progressBar.visibility = if (it) View.VISIBLE else View.GONE
+        }
+
         editViewModel.fabStatus.observe(this) {
             if (it) binding.fab.show()
             else binding.fab.hide()
         }
-        editViewModel.currentStore.observe(this){
+        editViewModel.currentStore.observe(this) {
             storeAdapter.save(it)
         }
     }
@@ -72,11 +77,6 @@ class MainActivity : AppCompatActivity(), IOnClickListener {
             adapter = storeAdapter
         }
     }
-
-    private fun getStores() {
-
-    }
-
 
     override fun onClick(storeEntity: StoreEntity) {
         launchEditFragment(storeEntity)
