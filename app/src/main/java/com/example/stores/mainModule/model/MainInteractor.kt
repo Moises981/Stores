@@ -1,50 +1,31 @@
 package com.example.stores.mainModule.model
 
-import com.android.volley.Request
-import com.android.volley.toolbox.JsonObjectRequest
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.liveData
+import androidx.lifecycle.map
 import com.example.stores.StoreApplication
 import com.example.stores.common.entities.StoreEntity
-import com.example.stores.common.utils.Constants
-import com.google.gson.Gson
-import com.google.gson.reflect.TypeToken
-import kotlinx.coroutines.runBlocking
+import com.example.stores.common.utils.StoresException
+import com.example.stores.common.utils.TypeError
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class MainInteractor {
 
-    fun findAllStores(callback: (MutableList<StoreEntity>) -> Unit) {
-        var storeList = mutableListOf<StoreEntity>()
-        val url = Constants.BASE_URL + Constants.STORE_PATH
-        val request = JsonObjectRequest(Request.Method.GET, url, null, {
-            val success = it.optBoolean(Constants.SUCCESS_PROPERTY, false)
-            if (success) {
-                val jsonList = it.optJSONArray(Constants.STORES_PROPERTY)?.toString()
-                if (jsonList != null) {
-                    val mutableList = object : TypeToken<MutableList<StoreEntity>>() {}.type
-                    storeList =
-                        Gson().fromJson(jsonList, mutableList)
-                    callback(storeList)
-                    return@JsonObjectRequest
-                }
-            }
-            callback(storeList)
-        }, {
-            it.printStackTrace()
-            callback(storeList)
+    val stores: LiveData<MutableList<StoreEntity>> = liveData {
+        val storesLiveData = StoreApplication.database.storeDao().getAllStores()
+        emitSource(storesLiveData.map { stores ->
+            stores.sortedBy { it.name }.toMutableList()
         })
-        StoreApplication.storeAPI.addToRequestQueue(request)
     }
 
-    fun deleteStore(storeEntity: StoreEntity, callback: (StoreEntity) -> Unit) {
-        runBlocking {
-            StoreApplication.database.storeDao().deleteStore(storeEntity)
-            callback(storeEntity)
-        }
+    suspend fun deleteStore(storeEntity: StoreEntity) = withContext(Dispatchers.IO) {
+        val res = StoreApplication.database.storeDao().deleteStore(storeEntity)
+        if (res == 0) throw StoresException(TypeError.DELETE)
     }
 
-    fun updateStore(storeEntity: StoreEntity, callback: (StoreEntity) -> Unit) {
-        runBlocking {
-            StoreApplication.database.storeDao().updateStore(storeEntity)
-            callback(storeEntity)
-        }
+    suspend fun updateStore(storeEntity: StoreEntity) = withContext(Dispatchers.IO) {
+        val res = StoreApplication.database.storeDao().updateStore(storeEntity)
+        if (res == 0) throw StoresException(TypeError.UPDATE)
     }
 }

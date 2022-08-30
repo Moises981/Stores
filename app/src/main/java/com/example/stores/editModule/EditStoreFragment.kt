@@ -10,20 +10,18 @@ import androidx.fragment.app.Fragment
 import androidx.core.view.MenuProvider
 import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.activityViewModels
-import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
 import com.example.stores.R
-import com.example.stores.StoreApplication
 import com.example.stores.common.entities.StoreEntity
+import com.example.stores.common.utils.TypeError
 import com.example.stores.databinding.FragmentEditStoreBinding
 import com.example.stores.editModule.viewModel.EditViewModel
 import com.example.stores.mainModule.MainActivity
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
-import kotlinx.coroutines.runBlocking
 
 
 class EditStoreFragment : Fragment(), MenuProvider {
@@ -50,9 +48,21 @@ class EditStoreFragment : Fragment(), MenuProvider {
     }
 
     private fun setupViewModel() {
-        editViewModel.currentStore.observe(viewLifecycleOwner) {
-            storeEntity = it
-            if (it.id != 0L) {
+        editViewModel.typeError.observe(viewLifecycleOwner) { typeError ->
+            if (typeError == TypeError.NONE) return@observe
+            val msgRes = when (typeError) {
+                TypeError.GET -> "Error at requesting data"
+                TypeError.INSERT -> "Error at inserting data"
+                TypeError.UPDATE -> "Error at updating data"
+                TypeError.DELETE -> "Error at removing data"
+                else -> "Unknown error"
+            }
+            Snackbar.make(binding.root, msgRes, Snackbar.LENGTH_SHORT).show()
+        }
+
+        editViewModel.getCurrentStore().observe(viewLifecycleOwner) {
+            storeEntity = it ?: StoreEntity()
+            if (it != null) {
                 isEditMode = true
                 setUIStore(it)
             } else {
@@ -60,12 +70,13 @@ class EditStoreFragment : Fragment(), MenuProvider {
             }
             setupActionBar()
         }
+
         editViewModel.result.observe(viewLifecycleOwner) {
             hideKeyboard()
             when (it) {
                 is Long -> {
                     storeEntity.id = it
-                    editViewModel.setCurrentStore(storeEntity)
+                    editViewModel.setCurrentStoreById(storeEntity.id)
                     Snackbar.make(
                         binding.root,
                         R.string.edit_store_message_update_success,
@@ -73,14 +84,46 @@ class EditStoreFragment : Fragment(), MenuProvider {
                     ).show()
                 }
                 is StoreEntity -> {
-                    editViewModel.setCurrentStore(storeEntity)
+                    val msgRes =
+                        if (it.id == 0L) R.string.edit_store_message_save_success else R.string.edit_store_message_update_success
+
+                    editViewModel.setCurrentStoreById(storeEntity.id)
                     Toast.makeText(
                         mainActivity,
-                        R.string.edit_store_message_save_success,
+                        msgRes,
                         Toast.LENGTH_SHORT
                     ).show()
+
+                    activity?.onBackPressed()
                 }
             }
+
+        }
+    }
+
+    override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
+        return when (menuItem.itemId) {
+            android.R.id.home -> {
+                mainActivity.onBackPressed()
+                true
+            }
+            R.id.action_save -> {
+                with(binding) {
+                    if (!validateTextFields(tilPhotoUrl, tilPhone, tilName)) {
+                        return false
+                    }
+                    storeEntity.apply {
+                        name = etName.toText()
+                        phone = etPhone.toText()
+                        website = etWebsite.toText()
+                        photoUrl = etPhotoUrl.toText()
+                    }
+                    if (isEditMode) editViewModel.updateStore(storeEntity)
+                    else editViewModel.saveStore(storeEntity)
+                }
+                true
+            }
+            else -> false
         }
     }
 
@@ -125,8 +168,8 @@ class EditStoreFragment : Fragment(), MenuProvider {
     override fun onDestroy() {
         mainActivity.supportActionBar?.setDisplayHomeAsUpEnabled(false)
         mainActivity.supportActionBar?.title = getString(R.string.app_name)
-        editViewModel.setFabStatus(true)
         editViewModel.setResult(Any())
+        editViewModel.clearError()
         super.onDestroy()
     }
 
@@ -142,33 +185,6 @@ class EditStoreFragment : Fragment(), MenuProvider {
 
     override fun onCreateMenu(menu: Menu, menuInflater: MenuInflater) {
         menuInflater.inflate(R.menu.menu_save, menu)
-    }
-
-    override fun onMenuItemSelected(menuItem: MenuItem): Boolean {
-        return when (menuItem.itemId) {
-            android.R.id.home -> {
-                mainActivity.onBackPressed()
-                true
-            }
-            R.id.action_save -> {
-                with(binding) {
-                    if (validateTextFields(tilPhotoUrl, tilPhone, tilName)) {
-                        return false
-                        storeEntity.apply {
-                            name = etName.toText()
-                            phone = etPhone.toText()
-                            website = etWebsite.toText()
-                            photoUrl = etPhotoUrl.toText()
-                        }
-                    }
-                    if (isEditMode) editViewModel.updateStore(storeEntity)
-                    else editViewModel.saveStore(storeEntity)
-                    mainActivity.onBackPressed()
-                }
-                true
-            }
-            else -> false
-        }
     }
 
     private fun TextInputEditText.toText(): String = this.text.toString().trim()

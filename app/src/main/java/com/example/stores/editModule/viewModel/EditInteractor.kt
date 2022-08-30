@@ -1,20 +1,33 @@
 package com.example.stores.editModule.viewModel
 
+import android.database.sqlite.SQLiteConstraintException
+import androidx.lifecycle.LiveData
 import com.example.stores.StoreApplication
 import com.example.stores.common.entities.StoreEntity
-import kotlinx.coroutines.runBlocking
+import com.example.stores.common.utils.StoresException
+import com.example.stores.common.utils.TypeError
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class EditInteractor {
-    fun saveStore(storeEntity: StoreEntity, callback: (Long) -> Unit) {
-        runBlocking {
-            callback(StoreApplication.database.storeDao().addStore(storeEntity))
+
+    fun getUserById(id: Long): LiveData<StoreEntity> {
+        return StoreApplication.database.storeDao().getStoreById(id)
+    }
+
+    suspend fun saveStore(storeEntity: StoreEntity) = withContext(Dispatchers.IO) {
+        try {
+            StoreApplication.database.storeDao().addStore(storeEntity)
+        } catch (e: SQLiteConstraintException) {
+            throw StoresException(TypeError.INSERT)
         }
     }
 
-    fun updateStore(storeEntity: StoreEntity, callback: (StoreEntity) -> Unit) {
-        runBlocking {
+    suspend fun updateStore(storeEntity: StoreEntity) = withContext(Dispatchers.IO) {
+        try {
             StoreApplication.database.storeDao().updateStore(storeEntity)
-            callback(storeEntity)
+        } catch (e: SQLiteConstraintException) {
+            throw StoresException(TypeError.UPDATE)
         }
     }
 }

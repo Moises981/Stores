@@ -10,17 +10,19 @@ import androidx.activity.viewModels
 import androidx.recyclerview.widget.GridLayoutManager
 import com.example.stores.*
 import com.example.stores.common.entities.StoreEntity
+import com.example.stores.common.utils.TypeError
 import com.example.stores.databinding.ActivityMainBinding
 import com.example.stores.editModule.EditStoreFragment
 import com.example.stores.editModule.viewModel.EditViewModel
 import com.example.stores.mainModule.adapters.IOnClickListener
-import com.example.stores.mainModule.adapters.StoreAdapter
+import com.example.stores.mainModule.adapters.StoreListAdapter
 import com.example.stores.mainModule.viewModels.MainViewModel
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 
 class MainActivity : AppCompatActivity(), IOnClickListener {
     private lateinit var binding: ActivityMainBinding
-    private lateinit var storeAdapter: StoreAdapter
+    private lateinit var storeAdapter: StoreListAdapter
     private lateinit var gridLayoutManager: GridLayoutManager
     private val mainViewModel: MainViewModel by viewModels()
     private val editViewModel: EditViewModel by viewModels()
@@ -30,10 +32,8 @@ class MainActivity : AppCompatActivity(), IOnClickListener {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        with(binding) {
-            fab.setOnClickListener {
-                launchEditFragment()
-            }
+        binding.fab.setOnClickListener {
+            launchEditFragment()
         }
         setupViewModel()
         setupRecyclerView()
@@ -41,35 +41,43 @@ class MainActivity : AppCompatActivity(), IOnClickListener {
 
     private fun setupViewModel() {
         mainViewModel.stores.observe(this) {
-            storeAdapter.setStores(it)
+            mainViewModel.setProgressBarStatus(false)
+            storeAdapter.submitList(it)
         }
 
         mainViewModel.progressBarStatus.observe(this) {
             binding.progressBar.visibility = if (it) View.VISIBLE else View.GONE
         }
 
+        mainViewModel.typeError.observe(this) { typeError ->
+            val msgRes = when (typeError) {
+                TypeError.GET -> "Error at requesting data"
+                TypeError.INSERT -> "Error at inserting data"
+                TypeError.UPDATE -> "Error at updating data"
+                TypeError.DELETE -> "Error at removing data"
+                else -> "Unknown error"
+            }
+            Snackbar.make(binding.root, msgRes, Snackbar.LENGTH_SHORT).show()
+        }
+
         editViewModel.fabStatus.observe(this) {
             if (it) binding.fab.show()
             else binding.fab.hide()
-        }
-        editViewModel.currentStore.observe(this) {
-            storeAdapter.save(it)
         }
     }
 
     private fun launchEditFragment(storeEntity: StoreEntity = StoreEntity()) {
         editViewModel.setFabStatus(false)
-        editViewModel.setCurrentStore(storeEntity)
-        val fragment = EditStoreFragment()
+        editViewModel.setCurrentStoreById(storeEntity.id)
         val fragmentManager = supportFragmentManager
         val fragmentTransaction = fragmentManager.beginTransaction()
-        fragmentTransaction.add(R.id.containerMain, fragment)
+        fragmentTransaction.add(R.id.containerMain, EditStoreFragment())
         fragmentTransaction.addToBackStack(null)
         fragmentTransaction.commit()
     }
 
     private fun setupRecyclerView() {
-        storeAdapter = StoreAdapter(mutableListOf(), this)
+        storeAdapter = StoreListAdapter(this)
         gridLayoutManager = GridLayoutManager(this, resources.getInteger(R.integer.main_columns))
         binding.recyclerView.apply {
             setHasFixedSize(true)
@@ -96,6 +104,11 @@ class MainActivity : AppCompatActivity(), IOnClickListener {
                     2 -> gotoWebsite(storeEntity.website)
                 }
             }.show()
+    }
+
+    override fun onBackPressed() {
+        super.onBackPressed()
+        editViewModel.setFabStatus(true)
     }
 
     private fun startIntent(intent: Intent) {
